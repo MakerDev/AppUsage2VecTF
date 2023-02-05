@@ -57,8 +57,8 @@ def main():
     train_dataset = AppUsage2VecDataset(mode='train')
     test_dataset  = AppUsage2VecDataset(mode='test')
 
-    train_loader  = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    test_loader   = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    train_loader  = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    test_loader   = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, drop_last=True)
 
     num_users     = len(open(os.path.join('data', 'user2id.txt'), 'r').readlines())
     num_apps      = len(open(os.path.join('data', 'app2id.txt'), 'r').readlines())
@@ -71,12 +71,12 @@ def main():
     # train & evaluation
     total_loss  = metrics.Mean()
     itr         = 1
-    p_itr       = 500
+    p_itr       = 100
     Ks          = [1, 5, 10]
     acc_history = [[0, 0, 0]]
     best_acc    = 0
     
-    for e in range(args.epoch):
+    for epoch in range(args.epoch):
         for _, (data, targets) in tqdm(enumerate(train_loader)):
             with tf.device('/GPU:0'), tf.GradientTape() as tape:
                 users     = tf.convert_to_tensor(data[0].numpy())
@@ -92,29 +92,29 @@ def main():
                 total_loss(loss)
 
                 if itr % p_itr == 0:
-                    print("[TRAIN] Epoch: {} / Iter: {} Loss - {}".format(e+1, itr, total_loss/p_itr))
+                    print("[TRAIN] Epoch: {} / Iter: {} Loss - {}".format(epoch+1, itr, total_loss/p_itr))
                     total_loss.reset_states()
                 itr += 1
 
-            corrects = [0, 0, 0]
-            for _, (data, targets) in enumerate(test_loader):
-                users     = tf.convert_to_tensor(data[0].numpy())
-                time_vecs = tf.convert_to_tensor(data[1].numpy())
-                app_seqs  = tf.convert_to_tensor(data[2].numpy())
-                time_seqs = tf.convert_to_tensor(data[3].numpy())
-                targets   = tf.convert_to_tensor(targets.numpy())
+        corrects = [0, 0, 0]
+        for _, (data, targets) in enumerate(test_loader):
+            users     = tf.convert_to_tensor(data[0].numpy())
+            time_vecs = tf.convert_to_tensor(data[1].numpy())
+            app_seqs  = tf.convert_to_tensor(data[2].numpy())
+            time_seqs = tf.convert_to_tensor(data[3].numpy())
+            targets   = tf.convert_to_tensor(targets.numpy())
 
-                scores = model(users, time_vecs, app_seqs, time_seqs, targets, 'predict')
-                for idx, k in enumerate(Ks):
-                    correct = torch.sum(torch.eq(torch.topk(torch.Tensor(scores.numpy()), dim=1, k=k).indices, 
-                                                 torch.Tensor(targets.numpy()))).item()
-                    corrects[idx] += correct
-            accs = [x/len(test_dataset) for x in corrects]
-            acc_history.append(accs)
-            print("[EVALUATION] Epoch: {} - Acc: {:.5f} / {:.5f} / {:.5f}".format(e + 1, accs[0], accs[1], accs[2]))
+            scores = model(users, time_vecs, app_seqs, time_seqs, targets, 'predict')
+            for idx, k in enumerate(Ks):
+                correct = torch.sum(torch.eq(torch.topk(torch.Tensor(scores.numpy()), dim=1, k=k).indices, 
+                                                torch.Tensor(targets.numpy()))).item()
+                corrects[idx] += correct
+        accs = [x/len(test_dataset) for x in corrects]
+        acc_history.append(accs)
+        print("[EVALUATION] Epoch: {} - Acc: {:.5f} / {:.5f} / {:.5f}".format(epoch + 1, accs[0], accs[1], accs[2]))
 
-            if accs[2] > best_acc:
-                best_acc = accs[2]    
+        if accs[2] > best_acc:
+            best_acc = accs[2]
 
     print("BEST ACC@10: {}".format(best_acc))
 
