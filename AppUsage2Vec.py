@@ -1,8 +1,6 @@
 import tensorflow as tf
 keras = tf.keras
 import keras.layers as layers
-from keras.losses import SparseCategoricalCrossentropy
-from keras.utils import losses_utils
 
 class AppUsage2Vec(keras.models.Model):
     def __init__(self, n_users, n_apps, dim, seq_length, n_layers, alpha, k, device):
@@ -36,7 +34,6 @@ class AppUsage2Vec(keras.models.Model):
         
         # [batch_size, dim, seq_length] * [batch_size, seq_length, 1] = [batch_size, dim]
         seq_vector = tf.matmul(tf.transpose(app_seqs_emb, perm=(0, 2, 1)), tf.expand_dims(weights, axis=2))
-        # -> Same with 'seq_vector = tf.matmul(app_seqs_emb, weights, transpose_a=True)' ??
         seq_vector = tf.squeeze(seq_vector, axis=2)
 
         # dual dnn / Eq.(7)(8)
@@ -63,10 +60,8 @@ class AppUsage2Vec(keras.models.Model):
             indicator   = tf.reduce_sum(tf.cast(comparison, tf.float32), axis=1)  # [batch_size]
             coefficient = tf.math.pow(tf.convert_to_tensor([self.alpha] * indicator.shape[0]), indicator) # [batch_size]
             
-            # loss_object = SparseCategoricalCrossentropy(reduction=losses_utils.ReductionV2.NONE)
-            # loss        = loss_object(scores, tf.reshape(targets, [-1]))
             loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=scores, labels=tf.reshape(targets, [-1])) # [batch_size]
-            loss = tf.math.reduce_mean(coefficient * loss) 
+            loss = tf.math.reduce_mean(coefficient * loss)
 
             return loss
 
@@ -99,7 +94,7 @@ class AppUsage2Vec(keras.models.Model):
             return scores
         else:
             preds = tf.nn.top_k(scores, k=self.k).indices
-            indicator = tf.reduce_sum(tf.cast(tf.equal(preds, targets), tf.float32), axis=1)
+            indicator = tf.reduce_sum(tf.cast(tf.equal(preds, tf.cast(targets, tf.int32)), tf.float32), axis=1)
             alpha = tf.constant(self.alpha, dtype=tf.float32)
             coefficient = tf.pow(alpha * tf.ones_like(indicator), indicator)
             
@@ -108,5 +103,5 @@ class AppUsage2Vec(keras.models.Model):
             return loss
 
 if __name__ == '__main__':
-    model = AppUsage2Vec(1000, 100, 64, 4, 2, 0.1, 5, 'cuda:gpu')
-    pass
+    model = AppUsage2Vec(1000, 100, 64, 4, 2, 0.1, 5, '/GPU:0')
+    
