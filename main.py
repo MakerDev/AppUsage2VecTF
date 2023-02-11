@@ -62,11 +62,11 @@ def main():
     for epoch in range(start_epoch, args.epoch):
         for _, (data, targets) in tqdm(enumerate(train_loader)):
             with tf.device(device), tf.GradientTape() as tape:
-                users     = tf.convert_to_tensor(data[0].numpy())
-                time_vecs = tf.convert_to_tensor(data[1].numpy())
-                app_seqs  = tf.convert_to_tensor(data[2].numpy())
-                time_seqs = tf.convert_to_tensor(data[3].numpy())
-                targets   = tf.convert_to_tensor(targets.numpy())
+                users     = tf.convert_to_tensor(data[0])
+                time_vecs = tf.convert_to_tensor(data[1])
+                app_seqs  = tf.convert_to_tensor(data[2])
+                time_seqs = tf.convert_to_tensor(data[3])
+                targets   = tf.convert_to_tensor(targets)
 
                 loss = model.train(users, time_vecs,app_seqs, time_seqs, targets, mode='train')
                 gradients = tape.gradient(loss, model.trainable_variables)
@@ -81,13 +81,13 @@ def main():
         corrects = [0, 0, 0]
         for _, (data, targets) in enumerate(test_loader):
             with tf.device(device):
-                users     = tf.convert_to_tensor(data[0].numpy())
-                time_vecs = tf.convert_to_tensor(data[1].numpy())
-                app_seqs  = tf.convert_to_tensor(data[2].numpy())
-                time_seqs = tf.convert_to_tensor(data[3].numpy())
-                targets   = tf.convert_to_tensor(targets.numpy())
+                users     = tf.convert_to_tensor(data[0])
+                time_vecs = tf.convert_to_tensor(data[1])
+                app_seqs  = tf.convert_to_tensor(data[2])
+                time_seqs = tf.convert_to_tensor(data[3])
+                targets   = tf.convert_to_tensor(targets)
 
-                scores = model.predict_sample(app_seqs, time_seqs, users, time_vecs, targets)
+                scores = model.predict_batch(app_seqs, time_seqs, users, time_vecs, targets)
 
             for idx, k in enumerate(Ks):
                 correct = torch.sum(torch.eq(torch.topk(torch.Tensor(scores.numpy()), dim=1, k=k).indices, 

@@ -62,7 +62,35 @@ class AppUsage2VecTFLite(keras.models.Model):
         loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=scores, labels=tf.reshape(targets, [-1])))
         loss = tf.reduce_mean(tf.multiply(coefficient, loss))
         return loss
+
+    @tf.function
+    def predict_batch(self, app_seqs, time_seqs, users, time_vecs):
+        app_seqs_emb = self.app_emb(app_seqs)
+        time_seqs = tf.expand_dims(time_seqs, axis=2)
+        app_seqs_time = tf.concat([app_seqs_emb, time_seqs], axis=2)
+        
+        app_seqs_flat = tf.reshape(app_seqs_time, (tf.shape(app_seqs_time)[0], -1))
+        
+        H_v = tf.tanh(self.attn(app_seqs_flat))
+        weights = tf.nn.l2_normalize(H_v, axis=1)
+        
+        seq_vector = tf.squeeze(tf.matmul(tf.transpose(app_seqs_emb, [0, 2, 1]), tf.expand_dims(weights, axis=2)), axis=2)
+        
+        user_vector = tf.squeeze(self.user_emb(users), axis=1)
+        for i in range(self.n_layers):
+            user_vector = self.user_dnn[i](user_vector)
+            user_vector = tf.tanh(user_vector)
+            seq_vector = self.app_dnn[i](seq_vector)
+            seq_vector = tf.tanh(seq_vector)
+        
+        combination = tf.multiply(user_vector, seq_vector)
+        combination = tf.concat([combination, time_vecs], axis=1)
+        
+        scores = tf.math.softmax(self.classifier(combination)) # [BatchSize X nApplications]
+
+        return scores
     
+
     @tf.function(input_signature=
         [
             tf.TensorSpec(shape=[1, 4], dtype=tf.int64),
