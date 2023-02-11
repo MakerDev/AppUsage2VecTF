@@ -7,70 +7,48 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import torch
 from torch.utils.data import DataLoader
-import torch.optim as optim
 from tqdm import tqdm
 from AppUsage2VecDataset import AppUsage2VecDataset
-from AppUsage2Vec import AppUsage2Vec
-from tensorflow.python.client import device_lib
+from AppUsage2VecTFLite import AppUsage2VecTFLite
 keras = tf.keras
 from keras.optimizers import Adam
 import keras.metrics as metrics
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Pytorch implementation of AppUsage2Vec model")
-
-    parser.add_argument('--epoch', type=int, default=15,
-                        help="The number of epochs")
-    parser.add_argument('--batch_size', type=int,
-                        default=128, help="The size of batch")
-    parser.add_argument('--dim', type=int, default=64,
-                        help="The embedding size of users and apps")
-    parser.add_argument('--seq_length', type=int, default=4,
-                        help="The length of previously used app sequence")
-    parser.add_argument('--num_layers', type=int, default=2,
-                        help="Number of layers in DNN")
-    parser.add_argument('--alpha', type=float, default=0.1,
-                        help="Discount coefficient for loss function")
-    parser.add_argument('--topk', type=float, default=5,
-                        help="Topk for loss function")
-    parser.add_argument('--lr', type=float, default=0.001,
-                        help="Learning rate for optimizer")
-    parser.add_argument('--seed', type=int, default=2021, help="Random seed")
-
-    return parser.parse_args()
+import utils
 
 
 def main():
-    args = parse_args()
+    args = utils.parse_args()
 
     # random seed
     random.seed(args.seed)
     tf.random.set_seed(args.seed)
 
+    num_users = len(open(os.path.join('data', 'user2id.txt'), 'r').readlines())
+    num_apps  = len(open(os.path.join('data', 'app2id.txt'), 'r').readlines())
+    device    = '/GPU:0'
+    
+    model = AppUsage2VecTFLite(num_users, num_apps, args.dim, args.seq_length,
+                         args.num_layers, args.alpha, args.topk, device)
+    checkpoint_dir = 'checkpoints'
+
+    #TODO: checkpoint_dir should be chosen in consideration of epoch folder.
+    latest = tf.train.latest_checkpoint(checkpoint_dir + '/epoch9')
+    if latest:
+        start_epoch = int(latest.split('/')[-1][-1])
+        model.load_weights(latest)
+        tf.saved_model.save(model, f'{checkpoint_dir}/epoch10/test', signatures={
+            'predict_sample': model.predict_sample.get_concrete_function()
+        })
+    else:
+        start_epoch = 0
+
     # data load
-    mini = False
+    mini = True
     train_dataset = AppUsage2VecDataset(mode='train', mini=mini)
     test_dataset  = AppUsage2VecDataset(mode='test', mini=mini)
 
     train_loader  = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
     test_loader   = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, drop_last=True)
-
-    num_users = len(open(os.path.join('data', 'user2id.txt'), 'r').readlines())
-    num_apps  = len(open(os.path.join('data', 'app2id.txt'), 'r').readlines())
-    device    = '/GPU:0'
-    
-    model = AppUsage2Vec(num_users, num_apps, args.dim, args.seq_length,
-                         args.num_layers, args.alpha, args.topk, device)
-    checkpoint_dir = 'checkpoints'
-
-    #TODO: checkpoint_dir should be chosen in consideration of epoch folder.
-    latest = tf.train.latest_checkpoint(checkpoint_dir)
-    if latest:
-        start_epoch = int(latest.split('/')[-1][-1])
-        model.load_weights(latest)
-    else:
-        start_epoch = 0
 
     optimizer = Adam(learning_rate=args.lr)
 
@@ -90,7 +68,7 @@ def main():
                 time_seqs = tf.convert_to_tensor(data[3].numpy())
                 targets   = tf.convert_to_tensor(targets.numpy())
 
-                loss = model(users, time_vecs, app_seqs, time_seqs, targets, mode='train')
+                loss = model.train(users, time_vecs,app_seqs, time_seqs, targets, mode='train')
                 gradients = tape.gradient(loss, model.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
@@ -109,7 +87,7 @@ def main():
                 time_seqs = tf.convert_to_tensor(data[3].numpy())
                 targets   = tf.convert_to_tensor(targets.numpy())
 
-                scores = model(users, time_vecs, app_seqs, time_seqs, targets)
+                scores = model.predict_sample(app_seqs, time_seqs, users, time_vecs, targets)
 
             for idx, k in enumerate(Ks):
                 correct = torch.sum(torch.eq(torch.topk(torch.Tensor(scores.numpy()), dim=1, k=k).indices, 
