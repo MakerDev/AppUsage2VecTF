@@ -1,5 +1,6 @@
 import argparse
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Pytorch implementation of AppUsage2Vec model")
