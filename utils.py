@@ -8,7 +8,7 @@ def parse_args():
     parser.add_argument('--epoch', type=int, default=15,
                         help="The number of epochs")
     parser.add_argument('--batch_size', type=int,
-                        default=128, help="The size of batch")
+                        default=64, help="The size of batch")
     parser.add_argument('--dim', type=int, default=64,
                         help="The embedding size of users and apps")
     parser.add_argument('--seq_length', type=int, default=4,
