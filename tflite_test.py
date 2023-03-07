@@ -18,7 +18,7 @@ def run_test(model: AppUsage2VecTFLite, dataloader):
             time_seqs = tf.convert_to_tensor(data[3])
             targets   = tf.convert_to_tensor(targets)
 
-            scores = model.predict_batch(app_seqs, time_seqs, users, time_vecs, )
+            scores = model.predict_batch(app_seqs, time_seqs, users, time_vecs)
 
         for idx, k in enumerate([1, 5, 10]):
             correct = torch.sum(torch.eq(torch.topk(torch.Tensor(scores.numpy()), dim=1, k=k).indices, 
@@ -79,9 +79,10 @@ if __name__ == '__main__':
     latest_model_dir = tf.train.latest_checkpoint('checkpoints/epoch8')
     model.load_weights(latest_model_dir)
 
-    mini       = True
-    dataset    = AppUsage2VecDataset(mode='test', mini=mini)
+    mini    = True
+    dataset = AppUsage2VecDataset(mode='test', mini=mini)
 
+    # Run origianl TF model
     run_test(model=model, dataloader=DataLoader(dataset, batch_size=64))
     # Load the TFLite model and allocate tensors.
     interpreter = tf.lite.Interpreter(model_path="tflite_converted_model/model_ep8.tflite")

@@ -1,6 +1,7 @@
-data
 checkpoints
 __pycache__
 tflite_converted_model
 .idea
 /.vscode
+.vs
+data

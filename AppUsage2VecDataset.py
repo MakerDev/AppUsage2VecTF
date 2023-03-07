@@ -30,7 +30,6 @@ class AppUsage2VecDataset(Dataset):
         target = self.df.iloc[idx]['app']
         app_seq = self.df.iloc[idx]['app_seq']
         time_seq = self.df.iloc[idx]['time_seq']
-        # time_vector = torch.zeros(31)
         time_vector = np.zeros(31)
         # time vector one of 7 dim / one of 24 dim
         time_vector[list(map(int, time.split('_')))] = 1

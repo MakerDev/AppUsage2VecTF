@@ -35,9 +35,9 @@ def main():
     if latest:
         start_epoch = int(latest.split('/')[-1][-1])
         model.load_weights(latest)
-        tf.saved_model.save(model, f'{checkpoint_dir}/epoch10/test', signatures={
-            'predict_sample': model.predict_sample.get_concrete_function()
-        })
+        # tf.saved_model.save(model, f'{checkpoint_dir}/epoch10/test', signatures={
+        #     'predict_sample': model.predict_sample.get_concrete_function()
+        # })
     else:
         start_epoch = 0
 
@@ -68,7 +68,7 @@ def main():
                 time_seqs = tf.convert_to_tensor(data[3])
                 targets   = tf.convert_to_tensor(targets)
 
-                loss = model.train(users, time_vecs,app_seqs, time_seqs, targets, mode='train')
+                loss      = model.train(users, time_vecs,app_seqs, time_seqs, targets, mode='train')
                 gradients = tape.gradient(loss, model.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
@@ -105,7 +105,9 @@ def main():
         save_path = f'{checkpoint_dir}/epoch{epoch+1}'
         os.makedirs(save_path, exist_ok=True)
         model.save_weights(f'{checkpoint_dir}/epoch{epoch+1}/{accs[0]:.1f}_{accs[1]:.1f}_{accs[2]:.1f}')
-
+        # tf.saved_model.save(model, f'{checkpoint_dir}/epoch{epoch+1}/saved_model', signatures={
+        #     'predict_sample': model.predict_sample.get_concrete_function()
+        # })
     print("BEST ACC@10: {}".format(best_acc))
 
     # visualization
