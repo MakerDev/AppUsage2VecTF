@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import torch
 from tqdm import tqdm
-from torch.utils.data import DataLoader
-# from tqdm import tqdm
 from AppUsage2VecDataset import AppUsage2VecDataset
 from AppUsage2VecTFLite import AppUsage2VecTFLite
 
